@@ -10,8 +10,10 @@
 
 	type NotificationCard = {
 		cameraId: string;
+		frameId: string;
 		cameraName: string;
 		currentPedestriansCount: bigint;
+		lastUpdate: Date;
 	};
 
 	let notificationCards: NotificationCard[] = [];
@@ -39,6 +41,7 @@
 			const cameraId = notificationData.pedestrianProcessed.frameInformation.streamId;
 			const pedestriansOnCameraCount =
 				notificationData.pedestrianProcessed.pedestrianInformation.pedestriansOnFrameCount;
+			const frameId = notificationData.pedestrianProcessed.frameInformation.frameId;
 
 			const camera = cameras.find((camera) => camera.id === cameraId);
 
@@ -50,21 +53,46 @@
 
 			let cameraCounts = camerasCountMap.get(cameraId);
 
-			if (cameraCounts) {				
+			// Update metadata map
+			if (cameraCounts) {
 				cameraCounts.push(pedestriansOnCameraCount);
-			} else {				
+			} else {
 				camerasCountMap.set(cameraId, [pedestriansOnCameraCount]);
 			}
 
+			// Update notification card
 			const notificationCameraCard = notificationCards.find((card) => card.cameraId === cameraId);
 
 			if (notificationCameraCard) {
+				const currentDate = new Date();
+				const lastUpdateDate = notificationCameraCard.lastUpdate;
+
+				const timeDifferenceInSeconds = Math.floor(
+					(currentDate.getTime() - lastUpdateDate.getTime()) / 1000
+				);
+
+				console.log('timedifff');
+				console.log(timeDifferenceInSeconds);
+
+				// update either time from previous one passed 5 seconds
+				if (timeDifferenceInSeconds > 5) {
+					console.log('UPDATING LAST UPDATE');
+					notificationCameraCard.lastUpdate = currentDate;
+					notificationCards = notificationCards;
+				}
+
 				// update only if count is above threshold
 				if (pedestriansOnCameraCount >= pedestriansCountThreshold) {
 					notificationCameraCard.currentPedestriansCount = pedestriansOnCameraCount;
+					notificationCameraCard.frameId = frameId;
 				}
-			} else {
 
+				// UPDATE UI only if greater than peviously (solves too many UI updates after each notification)
+				if (pedestriansOnCameraCount > pedestriansCountThreshold) {
+					notificationCards = notificationCards;
+				}
+
+			} else {
 				// should never happen
 				if (!cameraCounts) {
 					return;
@@ -83,17 +111,20 @@
 								cameraId: cameraId,
 								cameraName: camera?.name,
 								currentPedestriansCount: pedestriansOnCameraCount,
-								counts: [BigInt(pedestriansOnCameraCount)]
+								counts: [BigInt(pedestriansOnCameraCount)],
+								frameId: frameId,
+								lastUpdate: new Date()
 							} as NotificationCard
 						];
 					}
+				} else {
+					console.log(
+						`Counts not yet reached. Min consecutiveCount is set to ${consecutiveCount} currentCount is ${cameraCounts.length}`
+					);
 				}
-				else {
-					console.log(`not enough counts ${consecutiveCount} currentCount is ${cameraCounts.length}`);
-				}
-			}
 
-			notificationCards = notificationCards;
+				notificationCards = notificationCards;
+			}
 		});
 	};
 
@@ -103,6 +134,8 @@
 	import { Card } from 'flowbite-svelte';
 	import { Range, Helper, Label } from 'flowbite-svelte';
 	import { slide } from 'svelte/transition';
+
+	import CameraNotificationCard from '../components/CameraNotificationCard.svelte';
 
 	onMount(async () => {
 		const res = await fetch(`http://smartface-demo:8098/api/v1/Cameras`);
@@ -128,11 +161,10 @@
 
 	const reset = () => {
 		notificationCards = [];
-	    camerasCountMap.clear();
+		camerasCountMap.clear();
 
 		notificationCards = notificationCards;
-    }
-
+	};
 </script>
 
 <div class="ml-8 mt-8">
@@ -149,24 +181,21 @@
 			<Label class="block mb-2 text-lg">Consecutive count</Label>
 			<Label class="text-lg">{consecutiveCount}</Label>
 			<Range id="range-steps" min="0" max="30" bind:value={consecutiveCount} step="1" />
-			<Helper class="text-lg mt-2">Number of consecutive pedestrians above threshold to trigger notification</Helper>
+			<Helper class="text-lg mt-2"
+				>Number of consecutive pedestrians above threshold to trigger notification</Helper
+			>
 		</div>
 
 		<div class="grid grid-flow-col">
 			{#each notificationCards as notificationCard}
 				<div transition:slide={{ delay: 0, duration: 600, axis: 'x' }}>
-					<Card img="/images/camera_frame.jfif" class="bg-teal-500">
-						<h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-							{notificationCard.cameraName}
-						</h5>
-						<Heading
-							tag="h1"
-							class="mb-4"
-							customSize="text-4xl font-extrabold  md:text-5xl lg:text-6xl"
-						>
-							{notificationCard.currentPedestriansCount}
-						</Heading>
-					</Card>
+					{#key notificationCard.lastUpdate}
+						<CameraNotificationCard
+							frameId={notificationCard.frameId}
+							cameraName={notificationCard.cameraName}
+							currentPedestriansCount={notificationCard.currentPedestriansCount}
+						></CameraNotificationCard>
+					{/key}
 				</div>
 			{/each}
 		</div>
