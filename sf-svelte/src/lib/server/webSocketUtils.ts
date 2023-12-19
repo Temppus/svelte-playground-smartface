@@ -7,7 +7,6 @@ import type { Duplex } from 'stream';
 
 import ws from 'ws';
 
-import { createClient } from 'graphql-ws';
 import { SubscriptionClient } from 'subscriptions-transport-ws';
 import gql from 'graphql-tag';
 
@@ -44,18 +43,13 @@ export const createWSSGlobalInstance = () => {
 
 	const GRAPHQL_ENDPOINT = 'ws://smartface-demo:8097/graphql';
 
-	const pedeQuery = gql`subscription getObjectProcessedNotifications {
-  pedestrianProcessed {
-  frameInformation {
-    streamId
-    frameId
-  }
-  pedestrianInformation {
-    id
-    pedestriansOnFrameCount
-  }
-  }
-  }`;
+	const pedeQuery = gql`subscription {
+        pedestrianInserted {
+          streamId
+          frameId
+          objectsOnFrameCountForType
+        }
+      }`;
  
  const wsClient = new SubscriptionClient(GRAPHQL_ENDPOINT, {
     reconnect: true
@@ -63,7 +57,7 @@ export const createWSSGlobalInstance = () => {
 
   wsClient.request({ query: pedeQuery }).subscribe({
     next(data) {
-        
+
       console.log('Data received:', data);
 
       if (wss) {
@@ -73,13 +67,6 @@ export const createWSSGlobalInstance = () => {
           }
         });
       }
-
-
-    //   Data received: {
-    //     data: {
-    //       pedestrianProcessed: { frameInformation: [Object], pedestrianInformation: [Object] }
-    //     }
-    //   }
     },
     error(err) {
       console.error('Error:', err);

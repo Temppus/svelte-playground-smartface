@@ -61,7 +61,7 @@
 	});
 </script>
 
-<Card img={imagePath} class="bg-teal-500">
+<Card img={imagePath} class="bg-cyan-600">
     <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
         {cameraName}
     </h5>
