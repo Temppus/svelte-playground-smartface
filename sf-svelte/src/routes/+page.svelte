@@ -1,24 +1,13 @@
 <script lang="ts">
-	type CameraInfo = {
-		currentObjectsCount: bigint;
-		id: string;
-		name: string;
-		enabled: boolean;
-	};
+	import { onMount } from 'svelte';
+	import { Indicator } from 'flowbite-svelte';
+	import { Heading, Span } from 'flowbite-svelte';
+	import { Card } from 'flowbite-svelte';
+	import { Range, Helper, Label } from 'flowbite-svelte';
+	import { CardPlaceholder } from 'flowbite-svelte';
+	import CameraNotificationCard from '../components/CameraNotificationCard.svelte';
 
-	let cameras: CameraInfo[] = [];
-
-	type NotificationCard = {
-		cameraId: string;
-		frameId: string;
-		cameraName: string;
-		currentPedestriansCount: bigint;
-		lastUpdate: Date;
-	};
-
-	let notificationCards: NotificationCard[] = [];
-	let camerasCountMap = new Map<string, number[]>();
-
+	// Websocket stuff
 	let webSocketEstablished = false;
 	let ws: WebSocket | null = null;
 
@@ -126,21 +115,34 @@
 		});
 	};
 
-	import { onMount } from 'svelte';
-	import { Indicator } from 'flowbite-svelte';
-	import { Heading, Span } from 'flowbite-svelte';
-	import { Card } from 'flowbite-svelte';
-	import { Range, Helper, Label } from 'flowbite-svelte';
-	import { slide } from 'svelte/transition';
-	import { scale } from 'svelte/transition';
-	import { CardPlaceholder } from 'flowbite-svelte';
+	// Helper types for notifications
+	type CameraInfo = {
+		currentObjectsCount: bigint;
+		id: string;
+		name: string;
+		enabled: boolean;
+	};
 
-	import CameraNotificationCard from '../components/CameraNotificationCard.svelte';
+	let cameras: CameraInfo[] = [];
+
+	type NotificationCard = {
+		cameraId: string;
+		frameId: string;
+		cameraName: string;
+		currentPedestriansCount: bigint;
+		lastUpdate: Date;
+	};
+
+	// Collection of notification cards 
+	let notificationCards: NotificationCard[] = [];	
+	let camerasCountMap = new Map<string, number[]>();
 
 	onMount(async () => {
+		// fetch data from API on page mount
 		const res = await fetch(`http://smartface-demo:8098/api/v1/Cameras`);
 		const jsonCameras = await res.json();
 
+		// update DOM with data
 		cameras = jsonCameras.map((camera: any) => ({
 			currentObjectsCount: 0,
 			id: camera.id,
@@ -148,6 +150,7 @@
 			enabled: camera.enabled
 		}));
 
+		// enabled cameras should be on top
 		cameras.sort((a, b) => (a.enabled === b.enabled ? 0 : a.enabled ? -1 : 1));
 
 		establishWebSocket();
@@ -156,20 +159,21 @@
 	let pedestriansCountThreshold = 1;
 	let consecutiveCount = 1;
 
+	// Reset all collections to clear UI
 	$: pedestriansCountThreshold && reset();
 	$: consecutiveCount && reset();
 
+	// Reset all collections to clear UI 
 	const reset = () => {
 		notificationCards = [];
 		camerasCountMap.clear();
-
-		notificationCards = notificationCards;
 	};
 </script>
 
 <div>
 	<div class="ml-8 mt-8">
 		<div class="grid grid-cols-2 gap-4">
+			<!-- Upper panel with configuraion range sliders -->
 			<div>
 				<Label class="block mb-2 text-lg">Pedestrian in scene threshold</Label>
 				<Label class="text-lg">{pedestriansCountThreshold}</Label>
@@ -187,6 +191,7 @@
 				>
 			</div>
 
+			<!-- Notififation card row grid -->
 			<div class="flex space-x-2">
 				{#if notificationCards.length == 0}
 					<CardPlaceholder class="bg-cyan-600" />
@@ -204,6 +209,7 @@
 			</div>
 		</div>
 
+		<!-- Cameras grid -->
 		<div class="grid grid-cols-6 gap-0 mt-2">
 			{#each cameras as camera}
 				<div class="mt-2">
